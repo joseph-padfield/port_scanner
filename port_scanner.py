@@ -32,11 +32,15 @@ def clean_and_validate(target):
 def hostname_to_ip(target):
     domain_pattern = r'^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$'
     if re.match(domain_pattern, target):
-        return socket.gethostbyname(target)
+        ip = socket.gethostbyname(target)
+        print(f"Target IP: {ip}")
+        return ip
     else:
         return target
     
-def port_range(ports="20-1024"):
+def port_range(ports):
+    if len(ports) == 0:
+        ports = "20-1024"
     port_list = []
     ports = ports.split(',')
     for item in ports:
@@ -85,16 +89,47 @@ def main():
         ports = port_range(user_input)
     except ValueError as ve:
         print(f"Error parsing ports: {ve}")
+        return
 
     # Attempt connections
+    try:
+        print(f"Scanning {len(ports)} ports on target {target}...")
+        start_time = datetime.now()
+        print(f"Start: {start_time}")
+        for port in ports:
+            # Create a TCP socket for each port
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # Set a socket timeout to limit how long you wait for a response before moving on
+            sock.settimeout(0.5)
 
-    # Check connection status
+            # Check connection status
+            result = sock.connect_ex((target, port)) # Returns 0 if connection is successful, non-0 means closed or filtered ports
+            # Use connect_ex() rather than connect() as it returns error code rather than raising exceptions
 
-    # Get service name
+            # close socket
+            sock.close()
 
-    # Display results
+            if result == 0:
+            # Get service name
+                try:
+                    service = socket.getservbyport(port)
+                except OSError:
+                    service = "Unknown"
+                # Display results
+                print(f"Port {port} Open ({service})")
+        end_time = datetime.now()
+        print(f"End: {end_time}")
+        print(f"Scan completed in {end_time - start_time}")
+    except KeyboardInterrupt:
+        print("Scan interrupted by user.")
 
-# Handle errors
+# Streaming
+
+# Banner grabbing
+
+# OS detection
+
+# Version detecting
 
 # Bring in argparse once project is running but stick with input() until then
 
