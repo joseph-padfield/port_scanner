@@ -1,6 +1,7 @@
 import re # for REGEX
 import socket
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed # for threading
 
 # Clean and validate target
 def clean_and_validate(target):
@@ -65,6 +66,42 @@ def port_range(ports):
             port_list.append(port)
     return port_list
 
+def scan_port(target, port): # added this in order to incorporate threading
+    # Create a TCP socket for each port
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Set a socket timeout to limit how long you wait for a response before moving on
+    sock.settimeout(0.5)
+    # Check connection status
+    result = sock.connect_ex((target, port))
+    # close socket
+    sock.close()
+    # Get service name
+    try:
+        service = "Unknown"
+        status = False
+        if result == 0:
+            status = True
+            service = socket.getservbyport(port)
+    except OSError:
+        service = "Unknown"
+    return (port, status, service)
+
+def scan_ports_concurrently(target, ports):
+    open_ports = []
+    # create a ThreadPoolExecutor to manage a pool of worker threads
+    with ThreadPoolExecutor(max_workers=100) as executor: # set maximum of 100 threads will run concurrently
+        # first argument is executable, followed by arguments
+        futures = {executor.submit(scan_port, target, port): port for port in ports} # creates dictionary 
+        # iterate over the futures as they complete (not necessarily in submission order)
+        for future in as_completed(futures):
+            port, status, service = future.result() # result() is method of ThreadPoolExecutor, return from scan_port() function
+            if status: # if port is open
+                open_ports.append((port, service)) # add to list of open ports
+                print(f"Port {port} Open ({service})")
+    return open_ports
+
+
+
 def main():
     # Get target input
     user_input = input('Target IP/Domain: ')
@@ -96,30 +133,31 @@ def main():
         print(f"Scanning {len(ports)} ports on target {target}...")
         start_time = datetime.now()
         print(f"Start: {start_time}")
-        for port in ports:
-            # Create a TCP socket for each port
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # Set a socket timeout to limit how long you wait for a response before moving on
-            sock.settimeout(0.5)
+        # for port in ports:
+        #     # Create a TCP socket for each port
+        #     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #     # Set a socket timeout to limit how long you wait for a response before moving on
+        #     sock.settimeout(0.5)
 
-            # Check connection status
-            result = sock.connect_ex((target, port)) # Returns 0 if connection is successful, non-0 means closed or filtered ports
-            # Use connect_ex() rather than connect() as it returns error code rather than raising exceptions
+        #     # Check connection status
+        #     result = sock.connect_ex((target, port)) # Returns 0 if connection is successful, non-0 means closed or filtered ports
+        #     # Use connect_ex() rather than connect() as it returns error code rather than raising exceptions
 
-            # close socket
-            sock.close()
+        #     # close socket
+        #     sock.close()
 
-            if result == 0:
-            # Get service name
-                try:
-                    service = socket.getservbyport(port)
-                except OSError:
-                    service = "Unknown"
-                # Display results
-                print(f"Port {port} Open ({service})")
+        #     if result == 0:
+        #     # Get service name
+        #         try:
+        #             service = socket.getservbyport(port)
+        #         except OSError:
+        #             service = "Unknown"
+        #         # Display results
+        #         print(f"Port {port} Open ({service})")
+        open_ports = scan_ports_concurrently(target, ports)
         end_time = datetime.now()
         print(f"End: {end_time}")
-        print(f"Scan completed in {end_time - start_time}")
+        print(f"Scan completed in {end_time - start_time}\n{len(open_ports)} open ports found.")
     except KeyboardInterrupt:
         print("Scan interrupted by user.")
 
