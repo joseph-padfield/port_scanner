@@ -3,6 +3,13 @@ import socket
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed # for threading
 from colorama import init, Fore, Style
+import argparse # for running entirely in the CLI
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Python Port Scanner')
+    parser.add_argument('--target', help='Target IP Address or Domain Name, e.g. scanme.nmap.org\n')
+    parser.add_argument('--ports', help='Ports to scan, e.g. 22, 80-90. Defaults to 20-1024.')
+    return parser.parse_args()
 
 # initialising colorama for coloured text and resets colours automatically after each print
 # usage in code will look like: "print(Fore.GREEN + 'Port 80 Open (HTTP)')"
@@ -54,17 +61,17 @@ def port_range(ports):
                 start = int(start.strip())
                 finish = int(finish.strip())
             except ValueError:
-                raise ValueError(Fore.RED + "Ports cannot contain letters or invalid numbers.")
+                raise ValueError("Ports cannot contain letters or invalid numbers.")
             if not (1<= start <= 65535 and 1 <= finish <= 65535):
-                raise ValueError(Fore.RED + "Port numbers must be between 1 and 65535.")
+                raise ValueError("Port numbers must be between 1 and 65535.")
             port_list.extend(range(start, finish + 1))
         else:
             try:
                 port = int(item)
             except ValueError:
-                raise ValueError(Fore.RED + "Ports cannot contain letters or invalid numbers.")
+                raise ValueError("Ports cannot contain letters or invalid numbers.")
             if not (1 <= port <= 65535):
-                raise ValueError(Fore.RED + "Port numbers must be between 1 and 65535.")
+                raise ValueError("Port numbers must be between 1 and 65535.")
             port_list.append(port)
     return port_list
 
@@ -97,8 +104,9 @@ def scan_port(target, port):
         banner_str = banner.decode('utf-8', errors='ignore').strip() if banner else "" # decode banner
         return (port, status, service, banner_str)
     except Exception as e:
-        sock.close()
         return (port, False, "Unknown", "")
+    finally:
+        sock.close()
 
 def scan_ports_concurrently(target, ports): # implementing streaming
     open_ports = []
@@ -126,13 +134,22 @@ def grab_banner(target, port):
     except Exception as e:
         return "No banner"
 
-# OS detection
-
+# OS detection and version probing
 
 def main():
+    args = parse_args()
     # Get target input
-    user_input = input('\nEnter target IP address or domain name: ').strip()
-    target = clean_and_validate(user_input)
+    if args.target:
+        target_input = args.target.strip()
+    else:
+        target_input = input('\nEnter target IP address or domain name: ').strip()
+    # if no target_input, show helper message
+    if not target_input:
+        print(Fore.YELLOW + "No target specified. Please provide an IP address or domain name.")
+        print("Example usage:")
+        print("  python scanner.py --target example.com --ports 22,80-90")
+        return
+    target = clean_and_validate(target_input)
     if not target:
         print(Fore.RED + 'Invalid IP/Domain')
         return
@@ -146,9 +163,14 @@ def main():
         print(Fore.RED + f'Something went wrong: {e}')
         return
     # Define port range
-    user_input = input("Enter ports to scan (e.g. 22,80-90). Press Enter to scan default ports 20-1024: ")
+    if not args.ports:
+        ports_input = input("Enter ports to scan (e.g. 22,80-90). Press Enter to scan default ports 20-1024: ")
+    else:
+        ports_input = args.ports
+    if not ports_input:
+        print(Fore.YELLOW + "No ports specified, defaulting to ports 20-1024.")
     try:
-        ports = port_range(user_input)
+        ports = port_range(ports_input)
     except ValueError as ve:
         print(Fore.RED + f"Error parsing ports: {ve}")
         return
@@ -159,7 +181,7 @@ def main():
         print(f"\nStart: {start_time}\n")
         open_ports = scan_ports_concurrently(target, ports)
         end_time = datetime.now()
-        print(f"\nEnd: {end_time}\n")
+        print(f"\nEnd: {end_time}")
         print(f"\nScan completed in {end_time - start_time}\n" + Fore.GREEN + f"{len(open_ports)} open ports found.")
     except KeyboardInterrupt:
         print(Fore.RED + "Scan interrupted by user.")
