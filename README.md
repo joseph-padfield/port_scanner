@@ -1,32 +1,57 @@
-# Python Port Scanner — Work In Progress
+# Python Port Scanner
 
 ## Overview
 
-This is a simple Python-based port scanner designed to take either an IP address or a domain name as a target. The program can scan a default range of common ports or user-specified ports and port ranges.
+A lightweight, Python-based TCP port scanner that accepts either an IP address or a domain name as a target. It scans specified ports or a default range of commonly used ports and provides real-time feedback on open ports including service names and banner information where available.
 
-## Features Implemented So Far
-- Input Validation and Sanitisation
-  - Strips URL prefixes such as http:// and https:// and trailing slashes from the target input.
-  - Validates the target as a proper IPv4 address or domain name using regex and range checks.
-- Parses user-defined port inputs which can be:
-  - Single ports (e.g., 22)
-  - Port ranges (e.g., 20-80)
-  - Multiple ports and ranges separated by commas (e.g., 22,80-90,443)
-- Ensures port numbers are within the valid range of 1 to 65535 and raises clear errors for invalid input.
-- Hostname Resolution
-  - Converts domain names to their corresponding IP addresses before scanning.
-- Error Handling
+My goal in making this project was to better understand what is going on when we run an nmap scan. It was also a welcome opportunity to brush up my Python and learn some new tools. My goal having been achieved - rather than continue to polish and develop further, I decided to wrap things up at this point and move on to a new project.
 
-## How to Use
+I tested this tool on `scanme.nmap.org` - a URL that is designed to be scanned. I also used it on some target machines during HackTheBox challenges. Generally speaking, scanning a target without permission is illegal, so be careful!
 
-Run the script directly and provide inputs when prompted:
+## Features
 
-`python3 scanner.py`
+- **Input Validation and Sanitisation**
+  - Cleans input by stripping URL schemes (`http://`, `https://`) and trailing slashes.
+  - Validates targets as IPv4/IPv6 addresses (using the `ipaddress` module) or domain names via regex.
+  
+- **Flexible Port Selection**
+  - Supports single ports (e.g. `22`), ranges (e.g. `20-80`), or multiple ports and ranges separated by commas (e.g. `22,80-90,443`).
+  - Validates port numbers are within the valid range (1–65535).
 
-- Enter the target IP or domain name.
-- Enter ports or port ranges to scan using formats like 22, 20-80, or 22,80-90.
+- **Hostname Resolution**
+  - Converts domain names into their corresponding IP addresses prior to scanning.
 
-## Next Steps
-- Implement the port scanning logic (attempt TCP connections to the specified ports).
-- Add service identification for open ports.
-- Integrate command-line argument parsing using argparse for a flexible CLI interface.
+- **Concurrent Scanning**
+  - Utilises `ThreadPoolExecutor` to scan ports concurrently, greatly improving scan speed.
+
+- **Banner Grabbing**
+  - Attempts to retrieve service banners on open ports for rudimentary version and service information.
+
+- **Colorised Output**
+  - Uses `colorama` to provide colored terminal output for better user experience.
+
+- **Command Line Interface**
+  - Supports both interactive input prompts and command-line arguments via `argparse`.
+
+## Usage
+
+Run the scanner interactively:
+
+```
+bash
+python3 scanner.py
+```
+
+You’ll be prompted for:
+- Target IP address or domain name.
+- Ports or port ranges to scan (press Enter to scan default ports 20-1024).
+
+Or run with command-line arguments:
+
+```
+python3 scanner.py --target scanme.nmap.org --ports 22,80-90
+```
+
+## Requirements
+- Python 3.7+
+- `colorama` - `pip install colorama`
